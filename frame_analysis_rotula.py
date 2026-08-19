@@ -328,3 +328,95 @@ print()
 print("=" * 65)
 print("  ANALISIS COMPLETADO - CON ROTULA EN C")
 print("=" * 65)
+
+# ============================================================
+# 10. FUERZAS MAXIMAS POR ELEMENTO
+# ============================================================
+
+def calcular_fuerzas_al_elemento(tag, elements, fuerzas, coords, q, n_pts=100):
+    """Calcula N, V, M a lo largo del elemento usando fuerzas extremo + carga."""
+    ni, nj = elements[tag]
+    xi, yi = coords[ni]
+    xj, yj = coords[nj]
+    L = np.sqrt((xj-xi)**2 + (yj-yi)**2)
+    cos_a = (xj-xi)/L
+    sin_a = (yj-yi)/L
+
+    f = fuerzas[tag]
+    Fx_i, Fy_i, Mz_i = f[0], f[1], f[2]
+
+    Lx = xj - xi
+    wy_loc = -q * cos_a**2
+    w = wy_loc
+
+    s_vals = np.linspace(0, L, n_pts)
+    N_arr = np.zeros(n_pts)
+    V_arr = np.zeros(n_pts)
+    M_arr = np.zeros(n_pts)
+
+    for idx, s in enumerate(s_vals):
+        N_arr[idx] = Fx_i*cos_a + Fy_i*sin_a + (-q*sin_a*cos_a)*s
+        V_arr[idx] = -Fx_i*sin_a + Fy_i*cos_a + w*s
+        M_arr[idx] = Mz_i + (-Fx_i*sin_a + Fy_i*cos_a)*s + w*s**2/2
+
+    return s_vals, N_arr, V_arr, M_arr
+
+print()
+print("=" * 65)
+print("  FUERZAS MAXIMAS POR ELEMENTO")
+print("=" * 65)
+
+fuerzas_maximas = {}
+for tag in elements:
+    s_vals, N_arr, V_arr, M_arr = calcular_fuerzas_al_elemento(tag, elements, fuerzas_elem, coords, q)
+    ni, nj = elements[tag]
+    xi, yi = coords[ni]
+    xj, yj = coords[nj]
+    L = np.sqrt((xj-xi)**2 + (yj-yi)**2)
+
+    result = {
+        'N_max': float(np.max(N_arr)),
+        'N_min': float(np.min(N_arr)),
+        'V_max': float(np.max(V_arr)),
+        'V_min': float(np.min(V_arr)),
+        'M_max': float(np.max(M_arr)),
+        'M_min': float(np.min(M_arr)),
+    }
+    fuerzas_maximas[nombres_elem[tag]] = result
+
+    print(f"  Elemento {tag} ({nombres_elem[tag]}), L={L:.2f}m:")
+    print(f"    Axial:   N_max={result['N_max']:+.4f} tf,  N_min={result['N_min']:+.4f} tf")
+    print(f"    Cortante: V_max={result['V_max']:+.4f} tf,  V_min={result['V_min']:+.4f} tf")
+    print(f"    Momento: M_max={result['M_max']:+.4f} tf.m, M_min={result['M_min']:+.4f} tf.m")
+    print()
+
+# ============================================================
+# 11. EXPORTAR RESULTADOS A JSON
+# ============================================================
+
+resultados = {
+    "seccion": {"tipo": "HE 340 AA", "d_mm": d*1000, "bf_mm": bf*1000,
+                "tf_mm": tf*1000, "tw_mm": tw*1000, "A_cm2": round(A_sec*1e4, 2),
+                "Ix_cm4": round(I_sec*1e8, 1)},
+    "material": {"E_tf_m2": E_acero},
+    "carga": {"q_tf_m": q, "tipo": "proyectada vertical", "carga_total_tf": q * 13.0},
+    "desplazamientos_m": {nombres[k]: {"ux": v[0], "uy": v[1], "rz": v[2]}
+                          for k, v in desplazamientos.items()},
+    "reacciones": {nombres[k]: {"Rx": v[0], "Ry": v[1], "Mz": v[2]}
+                   for k, v in reacciones.items()},
+    "fuerzas_internas_extremos": {},
+    "fuerzas_maximas_por_elemento": fuerzas_maximas,
+}
+
+for tag, f in fuerzas_elem.items():
+    ni, nj = elements[tag]
+    resultados["fuerzas_internas_extremos"][nombres_elem[tag]] = {
+        "i": {"nodo": nombres[ni], "Fx": f[0], "Fy": f[1], "Mz": f[2]},
+        "j": {"nodo": nombres[nj], "Fx": f[3], "Fy": f[4], "Mz": f[5]},
+    }
+
+output_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resultados.json")
+with open(output_file, "w", encoding="utf-8") as f:
+    json.dump(resultados, f, indent=2, ensure_ascii=False)
+
+print(f"  Resultados exportados a: resultados.json")
