@@ -5,7 +5,7 @@ Puerto a dos aguas - Analisis estatico lineal con OpenSeesPy
 CON ROTULA EN EL NODO C (momento = 0 en C)
 
 Estructura tipo marco simetrico a dos aguas.
-Apoyos empotrados en A y E. Carga distribuida sobre la viga superior B-C-D.
+Apoyos articulados (pin) en A y E. Carga distribuida sobre toda la estructura.
 
 Unidades: tonf (fuerza), m (longitud)
 
@@ -48,11 +48,11 @@ apoyos = {
 }
 
 E_acero = 2.1e6    # tf/m2
-nu      = 0.30
+nu      = 0.30    # Poisson
 G_acero = E_acero / (2.0 * (1.0 + nu))
 
 d  = 0.320
-bf = 0.300
+bf = 0.300         # dimensiones areas e inercias
 tf = 0.0115
 tw = 0.0085
 
